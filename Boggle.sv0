@@ -1,0 +1,430 @@
+import javax.swing.*;
+import java.applet.*;
+import java.awt.event.*;
+import java.awt.*;
+import java.io.*;
+
+public class Boggle extends Applet implements ActionListener
+{
+    Panel p_card;  //to hold all of the screens
+    Panel card1, card2, card3, card4, card5, card6;
+    CardLayout cdLayout = new CardLayout ();
+
+    JTextArea words1 = new JTextArea (10, 30);
+    String dictionary[] = new String [370105];
+
+    Timer timer;
+    int time = 10;
+    JLabel timerDisplay;
+    JLabel displayedWord;
+    JLabel playerPoints;
+    int points = 0;
+    String playerWord = "";
+    String playerWords[] = new String [50];
+    int wordCounter = 0;
+    int x = -2;
+    int y = -2;
+    int lastx = -2;
+    int lasty = -2;
+
+    StringStack currentCoordinates = new StringStack ();
+    StringStack previousCoordinates = new StringStack ();
+
+    int row = 4;
+    int col = 4;
+    int pressed[] [] = new int [row] [col];
+    JButton gameGrid[] [] = new JButton [row] [col];
+    char letters[] [] = new char [row] [col];
+    boolean selectedLetters[] [] = new boolean [row] [col];
+    int letterPoints[] [] = new int [row] [col];
+
+
+    public void init ()
+    {
+	p_card = new Panel ();
+	p_card.setLayout (cdLayout);
+	// All the screens
+	introductionScreen ();
+	gameScreen ();
+	readIn ();
+	// instructionsScreen ();
+	//optionScreen ();
+	//userWinScreen ();
+	// rockWinScreen ();
+	resize (400, 550);
+	setLayout (new BorderLayout ());
+	add ("Center", p_card);
+
+
+    }
+
+
+    public void createButton (JButton b, String actionCommand, int fontSize, int x, int y, boolean clickable, boolean border, boolean text)
+    { // Created to have consistency among the buttons and reduce redundancy within my code
+	b.setActionCommand (actionCommand);
+	b.addActionListener (this);
+	if (text)
+	    b.setFont (new Font ("Arial", Font.BOLD, fontSize));
+	b.setBackground (new Color (255, 247, 211));
+	//  b.setForeground (new Color (193,255,114));
+	b.setPreferredSize (new Dimension (x, y));
+	b.setEnabled (clickable);
+	b.setBorderPainted (border);
+    }
+
+
+    public void introductionScreen ()
+    {
+	card1 = new Panel (null);
+	JLabel OpenScreen = new JLabel (createImageIcon ("openingscreen.png")); // Picture that displays the intro screen
+	OpenScreen.setBounds (0, 0, 400, 550);
+	JButton play = new JButton ("Play!");
+	createButton (play, "play", 60, 110, 50, true, true, true);
+	play.setBounds (100, 300, 200, 100);
+
+	card1.add (play);
+	card1.add (OpenScreen);
+
+	p_card.add ("1", card1);
+
+    }
+
+
+    public void gameScreen ()
+    {
+	card2 = new Panel ();
+	setBackground (new Color (193, 255, 114));
+
+	words1.setFont (new Font ("Arial", Font.BOLD, 14));
+	words1.setForeground (Color.black);
+	words1.setBackground (new Color (193, 255, 114));
+	words1.setLineWrap (true);
+	words1.setEditable (false);
+	words1.append ("Your words: ");
+
+	Panel p1 = new Panel ();
+	displayedWord = new JLabel ("Your word here");
+	timerDisplay
+	displayedWord.setFont (new Font ("Arial", Font.BOLD, 30));
+	p1.add (displayedWord);
+
+	Panel p2 = new Panel ();
+	timerDisplay = new JLabel ("Time: 120");
+	timerDisplay.setFont (new Font ("Ari
+	  timerDisplay.setPreferredSize (new Dimension (800, 20)); // Formatting
+	prompt.setHorizontalAlignment (0);al", Font.BOLD, 20));
+	playerPoints = new JLabel ("Points: " + points);
+	playerPoints.setFont (new Font ("Arial", Font.BOLD, 20));
+
+	p2.add (timerDisplay);
+	p2.add (playerPoints);
+
+
+	Panel p3 = new Panel ();
+	Panel grid = new Panel (new GridLayout (row, col));
+	int m = 0;
+	for (int i = 0 ; i < row ; i++)
+	{
+	    for (int j = 0 ; j < col ; j++)
+	    {
+		Dice d = new Dice ();
+		gameGrid [i] [j] = new JButton (createImageIcon (d.getPic ()));
+		letters [i] [j] = d.getFace ();
+		selectedLetters [i] [j] = d.getClicked ();
+		letterPoints [i] [j] = d.getPoint ();
+		createButton (gameGrid [i] [j], "" + m, 20, 72, 72, true, true, false);
+		grid.add (gameGrid [i] [j]);
+		m++;
+	    }
+	}
+	p3.add (grid);
+
+	Panel p4 = new Panel ();
+
+	JButton nextWord = new JButton ("Submit Word");
+	createButton (nextWord, "nextWord", 30, 290, 40, true, false, true);
+	p4.add (nextWord);
+
+	Panel p5 = new Panel ();
+	JButton ins = new JButton ("Instructions");
+	createButton (ins, "ins", 20, 140, 40, true, false, true);
+	JButton back = new JButton ("Back");
+	createButton (back, "back", 20, 140, 40, true, false, false);
+	p5.add (ins);
+	p5.add (back);
+
+	card2.add (p1);
+	card2.add (p2);
+	card2.add (p3);
+	card2.add (p4);
+	card2.add (p5);
+	card2.add (words1);
+
+	p_card.add ("2", card2);
+
+    }
+
+
+    public void boggleTimer ()
+    {
+	ActionListener listener = new ActionListener ()
+	{
+	    public void actionPerformed (ActionEvent ae)
+	    {
+		if (time > 0)
+		    time--;
+		timerDisplay.setText ("Time: " + time);
+		try
+		{
+		    Thread.sleep (500);
+		}
+		catch (InterruptedException m)
+		{
+		    System.out.println (m);
+		    ;
+		}
+	    }
+	}
+	;
+	timer = new Timer (250, listener);
+	timer.start ();
+    }
+
+
+    public void letterRing (int i, int j)
+    {
+	int counter = 0;
+	for (int m = 0 ; m < row ; m++)
+	{
+	    for (int n = 0 ; n < col ; n++)
+	    {
+		if (pressed [m] [n] == 0)
+		{
+		    gameGrid [m] [n].setEnabled (false);
+		    counter++;
+		}
+		else
+		    gameGrid [m] [n].setEnabled (true);
+	    }
+	}
+
+	if (selectedLetters [i] [j])
+	{
+	    if (i - 1 >= 0 && j - 1 >= 0)
+		gameGrid [i - 1] [j - 1].setEnabled (true);
+	    if (i - 1 >= 0)
+		gameGrid [i - 1] [j].setEnabled (true);
+	    if (i - 1 >= 0 && j + 1 < col)
+		gameGrid [i - 1] [j + 1].setEnabled (true);
+	    if (j - 1 >= 0)
+		gameGrid [i] [j - 1].setEnabled (true);
+	    if (j + 1 < col)
+		gameGrid [i] [j + 1].setEnabled (true);
+	    if (i + 1 < row && j - 1 >= 0)
+		gameGrid [i + 1] [j - 1].setEnabled (true);
+	    if (i + 1 < row)
+		gameGrid [i + 1] [j].setEnabled (true);
+	    if (i + 1 < row && j + 1 < col)
+		gameGrid [i + 1] [j + 1].setEnabled (true);
+	}
+	if (counter == row * col)
+	    enableTrue ();
+    }
+
+
+    public void readIn ()
+    {
+	BufferedReader in;
+	try
+	{
+	    in = new BufferedReader (new FileReader ("dictionary.txt"));
+	    for (int i = 0 ; i < dictionary.length ; i++)
+	    {
+		dictionary [i] = in.readLine ().trim ();
+
+	    }
+	    in.close ();
+
+	}
+	catch (IOException e)
+	{
+	    System.out.println ("Error opening file " + e);
+	}
+    }
+
+
+    public boolean BinarySearch (String find)
+    {
+	int high = dictionary.length;
+	int low = 0;
+	boolean foundit = false;
+	int mid = 0;
+	while (high >= low && !foundit)
+	{
+	    mid = (high + low) / 2;
+	    if (dictionary [mid].equals (find))
+		foundit = true;
+	    else if (find.compareTo (dictionary [mid]) > 0)
+		low = mid + 1;
+	    else //if (find < array [mid])
+		high = mid - 1;
+	}
+	return foundit;
+    }
+
+
+    public void enableTrue ()
+    {
+	for (int i = 0 ; i < row ; i++)
+	{
+	    for (int j = 0 ; j < col ; j++)
+		gameGrid [i] [j].setEnabled (true);
+	}
+    }
+
+
+    public void click (int pos)
+    {
+	finish ();
+	if (previousCoordinates.isEmpty ())
+	{
+	    lastx = pos / col;
+	    lasty = pos % col;
+	}
+	else
+	{
+	    lastx = x;
+	    lasty = y;
+	}
+	x = pos / col; // row
+	y = pos % col; // col
+	pressed [x] [y]++;
+
+	selectedLetters [x] [y] = !selectedLetters [x] [y];
+
+	if (selectedLetters [x] [y] && letters [x] [y] == 'Q')
+	    playerWord += letters [x] [y] + "U";
+	else if (selectedLetters [x] [y] && pressed [x] [y] == 1)
+	    playerWord += letters [x] [y];
+	points += letterPoints [x] [y];
+	displayedWord.setText (playerWord);
+
+
+	// increase inecrement of previous letters
+	if (selectedLetters [x] [y])
+	{
+	    currentCoordinates.push (x + "" + y);
+	    previousCoordinates.push (lastx + "" + lasty);
+	    gameGrid [x] [y].setIcon (createImageIcon (new Dice (letters [x] [y], selectedLetters [x] [y], letterPoints [x] [y]).getPic ()));
+	    letterRing (x, y);
+	}
+	else if (!selectedLetters [x] [y])
+	{ // if next click coord is same as curr lettee corrd
+	    String currXY = currentCoordinates.pop ();
+	    int currx = currXY.charAt (0) - 48;
+	    int curry = currXY.charAt (1) - 48;
+	    if (x == currx && y == curry) // if your current click was the same as your previous click
+	    {
+		if (letters [x] [y] == 'Q')
+		    playerWord = playerWord.substring (0, playerWord.length () - 2);
+		else
+		    playerWord = playerWord.substring (0, playerWord.length () - 1);
+		points -= letterPoints [x] [y];
+		displayedWord.setText (playerWord);
+		pressed [x] [y] = 0;
+		gameGrid [x] [y].setIcon (createImageIcon (new Dice (letters [x] [y], selectedLetters [x] [y], letterPoints [x] [y]).getPic ()));
+		String xy = previousCoordinates.pop ();
+		int prevx = xy.charAt (0) - 48;
+		int prevy = xy.charAt (1) - 48;
+		// put current arrays in like a 3d array
+		letterRing (prevx, prevy);
+	    }
+	    else
+	    {
+		showStatus ("You can only deselect your mosr recent letter!!");
+		currentCoordinates.push (currXY);
+		selectedLetters [x] [y] = true;
+		x = lastx;
+		y = lasty;
+	    }
+	}
+    }
+
+
+    public void reset ()
+    {
+	previousCoordinates.clear ();
+	playerWord = "";
+	displayedWord.setText ("Find your next word!");
+
+	for (int i = 0 ; i < row ; i++)
+	{
+	    for (int j = 0 ; j < col ; j++)
+	    {
+		pressed [i] [j] = 0;
+		selectedLetters [i] [j] = false;
+		gameGrid [i] [j].setIcon (createImageIcon (new Dice (letters [i] [j], selectedLetters [i] [j], letterPoints [i] [j]).getPic ()));
+	    }
+	}
+	enableTrue ();
+    }
+
+
+    public void finish ()
+    {
+	if (time == 0)
+	    showStatus ("Done");
+    }
+
+
+    public void actionPerformed (ActionEvent e)
+    {
+	if (e.getActionCommand ().equals ("play"))
+	{
+	    cdLayout.show (p_card, "2");
+	    //boggleTimer ();
+	}
+	else if (e.getActionCommand ().equals ("reset")) // doesnt work when i press toher letters after nudoing
+	{
+
+	}
+	else if (e.getActionCommand ().equals ("nextWord"))
+	{
+	    finish ();
+	    playerWords [wordCounter] = displayedWord.getText ();
+	    wordCounter++;
+	    int sameWords = 0;
+	    for (int i = 0 ; i < playerWords.length ; i++)
+	    {
+		if (displayedWord.getText ().equals (playerWords [i]))
+		    sameWords++;
+	    }
+
+	    if (sameWords >= 2)
+		JOptionPane.showMessageDialog (null, "You can only make a word once.", "Sneaky!!", JOptionPane.ERROR_MESSAGE);
+	    else if (BinarySearch (displayedWord.getText ().toLowerCase ()) && displayedWord.getText ().length () >= 3)
+	    {
+		playerPoints.setText ("Points: " + points);
+		words1.append (displayedWord.getText () + ", ");
+		reset ();
+	    }
+	    else
+	    {
+		reset ();
+		JOptionPane.showMessageDialog (null, "Not a valid word. Try again.", "Stupid!", JOptionPane.ERROR_MESSAGE);
+	    }
+	}
+	else
+	    click (Integer.parseInt (e.getActionCommand ()));
+    }
+
+
+    protected static ImageIcon createImageIcon (String path)
+    {
+	java.net.URL imgURL = Boggle.class.getResource (path);
+	if (imgURL != null)
+	    return new ImageIcon (imgURL);
+	else
+	    return null;
+    }
+}
